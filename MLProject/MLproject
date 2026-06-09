@@ -23,11 +23,4 @@ entry_points:
       data_dir:
         type: str
         default: "dataset_preprocessing"
-    command: >
-      python modelling.py
-        --n_estimators {n_estimators}
-        --max_depth {max_depth}
-        --learning_rate {learning_rate}
-        --min_samples_split {min_samples_split}
-        --model_type {model_type}
-        --data_dir {data_dir}
+    command: "python modelling.py --n_estimators {n_estimators} --max_depth {max_depth} --learning_rate {learning_rate} --min_samples_split {min_samples_split} --model_type {model_type} --data_dir {data_dir}"
