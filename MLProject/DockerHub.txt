@@ -1,0 +1,15 @@
+Docker Hub Image Information
+============================
+
+Image     : docker.io/linstrahl/heart-disease-mlflow
+Tags      : latest, v1, sha-<commit>
+
+Pull:
+  docker pull linstrahl/heart-disease-mlflow:latest
+
+Run:
+  docker run --rm \
+    -e MLFLOW_TRACKING_URI=mlruns \
+    -v $(pwd)/dataset_preprocessing:/app/MLProject/dataset_preprocessing \
+    -v $(pwd)/mlruns:/app/mlruns \
+    linstrahl/heart-disease-mlflow:latest

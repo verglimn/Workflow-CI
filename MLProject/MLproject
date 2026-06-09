@@ -1,0 +1,33 @@
+name: heart_disease_classifier
+
+conda_env: conda.yaml
+
+entry_points:
+  main:
+    parameters:
+      n_estimators:
+        type: int
+        default: 200
+      max_depth:
+        type: int
+        default: 10
+      learning_rate:
+        type: float
+        default: 0.1
+      min_samples_split:
+        type: int
+        default: 2
+      model_type:
+        type: str
+        default: "RandomForest"
+      data_dir:
+        type: str
+        default: "dataset_preprocessing"
+    command: >
+      python modelling.py
+        --n_estimators {n_estimators}
+        --max_depth {max_depth}
+        --learning_rate {learning_rate}
+        --min_samples_split {min_samples_split}
+        --model_type {model_type}
+        --data_dir {data_dir}
