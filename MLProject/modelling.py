@@ -126,7 +126,7 @@ def save_feature_importance(model, feature_names, path):
 def main():
     args = parse_args()
 
-    mlflow.set_experiment("Heart_Disease_CI")
+    active_run = mlflow.active_run()
 
     log.info(f"Model type   : {args.model_type}")
     log.info(f"n_estimators : {args.n_estimators}")
@@ -135,10 +135,9 @@ def main():
     X_train, y_train, X_tv, y_tv, X_test, y_test = load_data(args.data_dir)
     model = build_model(args)
 
-    with mlflow.start_run() as run:
+    def run_training(run):
         run_id = run.info.run_id
 
-        # Tags
         mlflow.set_tags({
             "model_type" : args.model_type,
             "source"     : "ci_workflow",
@@ -146,7 +145,6 @@ def main():
             "timestamp"  : datetime.now().isoformat(),
         })
 
-        # Params (manual — NO autolog)
         mlflow.log_params({
             "model_type"        : args.model_type,
             "n_estimators"      : args.n_estimators,
@@ -155,14 +153,11 @@ def main():
             "min_samples_split" : args.min_samples_split,
         })
 
-        # Fit
         model.fit(X_tv, y_tv)
 
-        # Predict
         y_pred  = model.predict(X_test)
         y_proba = model.predict_proba(X_test)[:, 1] if hasattr(model, "predict_proba") else None
 
-        # Metrics
         metrics = {
             "test_accuracy" : accuracy_score(y_test, y_pred),
             "test_precision": precision_score(y_test, y_pred),
@@ -175,14 +170,13 @@ def main():
 
         mlflow.log_metrics(metrics)
 
-        # Artifacts
         cm_path = os.path.join(ARTIFACT_DIR, "confusion_matrix.png")
-        save_confusion_matrix(y_test, y_pred, f"{args.model_type} — Test CM", cm_path)
+        save_confusion_matrix(y_test, y_pred, f"{args.model_type} - Test CM", cm_path)
         mlflow.log_artifact(cm_path, "plots")
 
         if y_proba is not None:
             roc_path = os.path.join(ARTIFACT_DIR, "roc_curve.png")
-            save_roc_curve(y_test, y_proba, f"{args.model_type} — ROC", roc_path)
+            save_roc_curve(y_test, y_proba, f"{args.model_type} - ROC", roc_path)
             mlflow.log_artifact(roc_path, "plots")
 
         fi_path = os.path.join(ARTIFACT_DIR, "feature_importance.png")
@@ -190,7 +184,6 @@ def main():
         if os.path.exists(fi_path):
             mlflow.log_artifact(fi_path, "plots")
 
-        # Classification report
         report = classification_report(
             y_test, y_pred,
             target_names=["No Disease", "Disease"],
@@ -201,31 +194,34 @@ def main():
             json.dump(report, f, indent=2)
         mlflow.log_artifact(report_path, "reports")
 
-        # Model + signature
         signature = infer_signature(X_tv, model.predict(X_tv))
         mlflow.sklearn.log_model(
             model,
             artifact_path="model",
             signature=signature,
             input_example=X_tv.head(3),
-            registered_model_name=f"HeartDisease_{args.model_type}_CI",
         )
 
-        # Save model pkl
         model_pkl = os.path.join(ARTIFACT_DIR, "model.pkl")
         joblib.dump(model, model_pkl)
         mlflow.log_artifact(model_pkl, "model_pkl")
 
-        log.info(f"test_f1       = {metrics['test_f1']:.4f}")
-        log.info(f"test_roc_auc  = {metrics.get('test_roc_auc', 'N/A')}")
-        log.info(f"Run ID        = {run_id}")
+        log.info(f"test_f1      = {metrics['test_f1']:.4f}")
+        log.info(f"test_roc_auc = {metrics.get('test_roc_auc', 'N/A')}")
+        log.info(f"Run ID       = {run_id}")
 
-    # Output run_id untuk GitHub Actions
-    print(f"MLFLOW_RUN_ID={run_id}")
-    with open(os.path.join(BASE_DIR, "run_id.txt"), "w") as f:
-        f.write(run_id)
+        with open(os.path.join(BASE_DIR, "run_id.txt"), "w") as f:
+            f.write(run_id)
 
-    log.info("Training complete ✓")
+    if active_run:
+        log.info(f"Using existing active run: {active_run.info.run_id}")
+        run_training(active_run)
+    else:
+        mlflow.set_experiment("Heart_Disease_CI")
+        with mlflow.start_run() as run:
+            run_training(run)
+
+    log.info("Training complete!")
 
 
 if __name__ == "__main__":
